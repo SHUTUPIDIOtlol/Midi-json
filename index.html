@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MIDI JSON Viewer — Enhanced</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#0b0f1a;
+  --panel:#12182b;
+  --accent:#6cf2c2;
+  --accent2:#6ca8ff;
+  --text:#e6ebff;
+  --muted:#9aa4ff;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Inter,system-ui,Arial;
+  background:radial-gradient(1200px 600px at 10% -10%,#1b2a4a 0%,transparent 40%),
+             radial-gradient(1000px 600px at 90% 10%,#0e3b2a 0%,transparent 45%),
+             var(--bg);
+  color:var(--text);
+  min-height:100vh;
+}
+header{
+  padding:24px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+header h1{
+  margin:0;
+  font-size:22px;
+  font-weight:800;
+  letter-spacing:.3px;
+}
+header span{
+  color:var(--accent);
+}
+main{
+  padding:16px;
+  max-width:1200px;
+  margin:auto;
+}
+.panel{
+  background:linear-gradient(180deg,#141b33,#0f1426);
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 20px 40px rgba(0,0,0,.45);
+}
+.controls{
+  display:grid;
+  grid-template-columns:1fr auto auto auto;
+  gap:12px;
+  margin-bottom:12px;
+}
+input[type=file]{
+  background:var(--panel);
+  border:1px solid #1e2750;
+  color:var(--text);
+  padding:12px;
+  border-radius:12px;
+}
+button{
+  border:none;
+  border-radius:12px;
+  padding:12px 16px;
+  font-weight:600;
+  cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#04140e;
+}
+button.secondary{
+  background:#1a2142;
+  color:var(--text);
+}
+button:active{transform:scale(.98)}
+pre{
+  margin:0;
+  margin-top:12px;
+  background:#070a14;
+  border-radius:12px;
+  padding:16px;
+  max-height:65vh;
+  overflow:auto;
+  font-size:12px;
+  line-height:1.5;
+  border:1px solid #1b234a;
+}
+footer{
+  text-align:center;
+  padding:12px;
+  color:var(--muted);
+  font-size:12px;
+}
+.glow{
+  box-shadow:0 0 0 rgba(0,0,0,0),
+             0 0 40px rgba(108,242,194,.15);
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MIDI <span>JSON Viewer</span></h1>
+  <div style="color:var(--muted);font-size:13px">Tone.js Midi</div>
+</header>
+
+<main>
+  <div class="panel glow">
+    <div class="controls">
+      <input id="file" type="file" accept=".mid,.midi,.rtx">
+      <button id="copy">Copy JSON</button>
+      <button id="download">Download JSON</button>
+      <button id="clear" class="secondary">Clear</button>
+    </div>
+
+    <pre id="output">// Upload a MIDI file</pre>
+  </div>
+</main>
+
+<footer>
+  Client-side • No uploads • Better UI
+</footer>
+
+<!-- Tone.js MIDI -->
+<script src="https://unpkg.com/@tonejs/midi@2.0.28/build/Midi.js"></script>
+
+<script>
+const fileInput = document.getElementById("file");
+const output = document.getElementById("output");
+const copyBtn = document.getElementById("copy");
+const downloadBtn = document.getElementById("download");
+const clearBtn = document.getElementById("clear");
+
+let lastJSON = "";
+
+fileInput.addEventListener("change", async () => {
+  const file = fileInput.files[0];
+  if(!file) return;
+
+  const buffer = await file.arrayBuffer();
+  const midi = new Midi(buffer);
+
+  lastJSON = JSON.stringify(midi.toJSON(), null, 2);
+  output.textContent = lastJSON;
+});
+
+copyBtn.addEventListener("click", async () => {
+  if(!lastJSON) return;
+  await navigator.clipboard.writeText(lastJSON);
+  copyBtn.textContent = "Copied";
+  setTimeout(()=>copyBtn.textContent="Copy JSON",800);
+});
+
+downloadBtn.addEventListener("click", () => {
+  if(!lastJSON) return;
+  const blob = new Blob([lastJSON], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "midi.json";
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+clearBtn.addEventListener("click", () => {
+  lastJSON = "";
+  output.textContent = "// Upload a MIDI file";
+  fileInput.value = "";
+});
+</script>
+
+</body>
+  </html>
