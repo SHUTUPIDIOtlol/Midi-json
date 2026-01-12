@@ -2,136 +2,85 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>MIDI JSON Viewer — Enhanced</title>
+<title>MIDI → Game JSON Converter</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Fonts -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet"/>
 
 <style>
-:root{
-  --bg:#0b0f1a;
-  --panel:#12182b;
-  --accent:#6cf2c2;
-  --accent2:#6ca8ff;
-  --text:#e6ebff;
-  --muted:#9aa4ff;
-}
-*{box-sizing:border-box}
 body{
   margin:0;
+  background:#0b0f1a;
+  color:#e6ebff;
   font-family:Inter,system-ui,Arial;
-  background:radial-gradient(1200px 600px at 10% -10%,#1b2a4a 0%,transparent 40%),
-             radial-gradient(1000px 600px at 90% 10%,#0e3b2a 0%,transparent 45%),
-             var(--bg);
-  color:var(--text);
-  min-height:100vh;
-}
-header{
-  padding:24px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-}
-header h1{
-  margin:0;
-  font-size:22px;
-  font-weight:800;
-  letter-spacing:.3px;
-}
-header span{
-  color:var(--accent);
 }
 main{
-  padding:16px;
-  max-width:1200px;
+  max-width:1100px;
   margin:auto;
+  padding:16px;
+}
+h1{
+  margin:0 0 12px;
 }
 .panel{
-  background:linear-gradient(180deg,#141b33,#0f1426);
+  background:#0f1426;
   border-radius:16px;
   padding:16px;
-  box-shadow:0 20px 40px rgba(0,0,0,.45);
 }
 .controls{
   display:grid;
-  grid-template-columns:1fr auto auto auto;
-  gap:12px;
-  margin-bottom:12px;
+  grid-template-columns:1fr auto auto auto auto;
+  gap:10px;
 }
-input[type=file]{
-  background:var(--panel);
-  border:1px solid #1e2750;
-  color:var(--text);
-  padding:12px;
-  border-radius:12px;
+input,button{
+  padding:10px;
+  border-radius:10px;
+  border:none;
+}
+input{
+  background:#161c36;
+  color:white;
 }
 button{
-  border:none;
-  border-radius:12px;
-  padding:12px 16px;
+  background:linear-gradient(135deg,#6cf2c2,#6ca8ff);
   font-weight:600;
   cursor:pointer;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  color:#04140e;
 }
 button.secondary{
   background:#1a2142;
-  color:var(--text);
+  color:white;
 }
-button:active{transform:scale(.98)}
 pre{
-  margin:0;
   margin-top:12px;
-  background:#070a14;
-  border-radius:12px;
-  padding:16px;
   max-height:65vh;
   overflow:auto;
+  border-radius:12px;
   font-size:12px;
-  line-height:1.5;
-  border:1px solid #1b234a;
-
-  user-select:text;
-  }
-footer{
-  text-align:center;
-  padding:12px;
-  color:var(--muted);
-  font-size:12px;
-}
-.glow{
-  box-shadow:0 0 0 rgba(0,0,0,0),
-             0 0 40px rgba(108,242,194,.15);
 }
 </style>
 </head>
+
 <body>
-
-<header>
-  <h1>MIDI <span>JSON Viewer</span></h1>
-  <div style="color:var(--muted);font-size:13px">Tone.js Midi</div>
-</header>
-
 <main>
-  <div class="panel glow">
-    <div class="controls">
-      <input id="file" type="file" accept=".mid,.midi,.rtx">
-      <button id="copy">Copy JSON</button>
-      <button id="download">Download JSON</button>
-      <button id="clear" class="secondary">Clear</button>
-    </div>
+<h1>MIDI → Game JSON</h1>
 
-    <pre id="output">// Upload a MIDI file</pre>
+<div class="panel">
+  <div class="controls">
+    <input id="file" type="file" accept=".mid,.midi">
+    <button id="copy">Copy</button>
+    <button id="download">Download</button>
+    <button id="raw" class="secondary">Raw MIDI</button>
+    <button id="clear" class="secondary">Clear</button>
   </div>
+
+  <pre tabindex="0"><code id="output" class="language-json">// Upload a MIDI file</code></pre>
+</div>
 </main>
 
-<footer>
-  Client-side • No uploads • Better UI
-</footer>
-
-<!-- Tone.js MIDI -->
 <script src="https://unpkg.com/@tonejs/midi@2.0.28/build/Midi.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
 
 <script>
 const fileInput = document.getElementById("file");
@@ -139,44 +88,83 @@ const output = document.getElementById("output");
 const copyBtn = document.getElementById("copy");
 const downloadBtn = document.getElementById("download");
 const clearBtn = document.getElementById("clear");
+const rawBtn = document.getElementById("raw");
 
-let lastJSON = "";
+let rawJSON = "";
+let gameJSON = "";
+let showingRaw = false;
 
-fileInput.addEventListener("change", async () => {
+function buildGameJSON(midi){
+  const notes = [];
+  midi.tracks.forEach(track=>{
+    track.notes.forEach(n=>{
+      notes.push({
+        note: n.name,
+        time: +n.time.toFixed(3),
+        length: +n.duration.toFixed(3),
+        velocity: +n.velocity.toFixed(3)
+      });
+    });
+  });
+  notes.sort((a,b)=>a.time-b.time);
+  return notes;
+}
+
+fileInput.addEventListener("change", async ()=>{
   const file = fileInput.files[0];
   if(!file) return;
 
   const buffer = await file.arrayBuffer();
   const midi = new Midi(buffer);
 
-  lastJSON = JSON.stringify(midi.toJSON(), null, 2);
-  output.textContent = lastJSON;
+  rawJSON = JSON.stringify(midi.toJSON(), null, 2);
+  gameJSON = JSON.stringify(buildGameJSON(midi), null, 2);
+
+  showingRaw = false;
+  output.textContent = gameJSON;
+  Prism.highlightElement(output);
 });
 
-copyBtn.addEventListener("click", async () => {
-  if(!lastJSON) return;
-  await navigator.clipboard.writeText(lastJSON);
-  copyBtn.textContent = "Copied";
-  setTimeout(()=>copyBtn.textContent="Copy JSON",800);
-});
+rawBtn.onclick = ()=>{
+  if(!rawJSON) return;
+  showingRaw = !showingRaw;
+  output.textContent = showingRaw ? rawJSON : gameJSON;
+  rawBtn.textContent = showingRaw ? "Game JSON" : "Raw MIDI";
+  Prism.highlightElement(output);
+};
 
-downloadBtn.addEventListener("click", () => {
-  if(!lastJSON) return;
-  const blob = new Blob([lastJSON], {type:"application/json"});
-  const url = URL.createObjectURL(blob);
+copyBtn.onclick = ()=>{
+  const data = showingRaw ? rawJSON : gameJSON;
+  if(!data) return;
+  navigator.clipboard.writeText(data);
+};
+
+downloadBtn.onclick = ()=>{
+  const data = showingRaw ? rawJSON : gameJSON;
+  if(!data) return;
+  const blob = new Blob([data], {type:"application/json"});
   const a = document.createElement("a");
-  a.href = url;
-  a.download = "midi.json";
+  a.href = URL.createObjectURL(blob);
+  a.download = showingRaw ? "midi_raw.json" : "game_music.json";
   a.click();
-  URL.revokeObjectURL(url);
-});
+};
 
-clearBtn.addEventListener("click", () => {
-  lastJSON = "";
-  output.textContent = "// Upload a MIDI file";
-  fileInput.value = "";
+clearBtn.onclick = ()=>{
+  rawJSON="";
+  gameJSON="";
+  output.textContent="// Upload a MIDI file";
+};
+
+output.addEventListener("keydown", e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==="a"){
+    e.preventDefault();
+    const r=document.createRange();
+    r.selectNodeContents(output);
+    const s=window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+  }
 });
 </script>
-
 </body>
-  </html>
+</html>
